@@ -27,7 +27,7 @@ app.post("/participants", (req, res) => {
 
     db.collection("participants").insertOne({ name, lastStatus: Date.now() })
         .then(() => {
-            db.collection("messages").insertOne({ from: name, to: 'Todos', text: 'entra na sala...', type: 'status', time: 'HH:mm:ss' })
+            res.send("ok")
         })
         .catch(() => res.sendStatus(500))
 })
@@ -38,4 +38,4 @@ app.get("/participants", (req, res) => {
         .catch(() => res.sendStatus(500))
 })
 
-app.listen(4000, () => console.log("Servidor rodando"))
+app.listen(5000, () => console.log("Servidor rodando"))
