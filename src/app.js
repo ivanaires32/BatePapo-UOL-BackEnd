@@ -2,6 +2,7 @@ import express, { json } from "express"
 import cors from "cors"
 import { MongoClient } from "mongodb"
 import dotenv from "dotenv"
+import dayjs from "dayjs"
 
 const app = express()
 
@@ -24,15 +25,16 @@ const db = mongoClient.db()
 app.post("/participants", async (req, res) => {
     const { name } = req.body
 
-    if (!name) return res.status(422).send("Campo Obrigatorio")
+    if (!name || typeof name !== "string") return res.status(422).send("Campo Obrigatorio e não deve ser numero")
 
     try {
         const jaLogado = await db.collection("participants").findOne({ name })
         if (jaLogado) return res.status(409).send("Usuario ja cadastrado")
         await db.collection("participants").insertOne({ name: name, lastStatus: Date.now() })
 
+        const time = dayjs().format("HH:mm:ss")
         await db.collection("messages").insertOne(
-            { from: name, to: 'Todos', text: 'entra na sala...', type: 'status', time: 'HH:mm:ss' }
+            { from: name, to: 'Todos', text: 'entra na sala...', type: 'status', time }
         )
         res.sendStatus(201)
     } catch (err) {
@@ -42,11 +44,14 @@ app.post("/participants", async (req, res) => {
 
 })
 
-app.get("/participants", (req, res) => {
+app.get("/participants", async (req, res) => {
     const { user } = req.headers
-    db.collection("participants").find().toArray()
-        .then(users => res.status(201).send(users))
-        .catch(() => res.sendStatus(500))
+    try {
+        const usersOn = await db.collection("participants").find().toArray()
+        res.status(201).send(usersOn)
+    } catch (err) {
+        res.sendStatus(500)
+    }
 })
 
 app.post("/messages", (req, res) => {
