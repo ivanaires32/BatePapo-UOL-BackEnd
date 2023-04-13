@@ -10,29 +10,35 @@ app.use(cors())
 dotenv.config()
 
 //config database
-let db
-const mongoClient = new MongoClient(process.env.DATABASE_URL)
-mongoClient.connect()
-    .then(() => db = mongoClient.db())
-    .catch(err => console.log(err.message))
 
-app.post("/participants", (req, res) => {
+const mongoClient = new MongoClient(process.env.DATABASE_URL)
+try {
+    await mongoClient.connect()
+    console.log("servidor conectado")
+} catch (err) {
+    console.log(err.message)
+}
+
+const db = mongoClient.db()
+
+app.post("/participants", async (req, res) => {
     const { name } = req.body
 
-    if (!name) res.status(422).send("Campo Obrigatorio")
+    if (!name) return res.status(422).send("Campo Obrigatorio")
 
-    db.collection("participants").findOne({ name })
-        .then(() => res.sendStatus(409))
+    try {
+        const jaLogado = await db.collection("participants").findOne({ name })
+        if (jaLogado) return res.status(409).send("Usuario ja cadastrado")
+        await db.collection("participants").insertOne({ name: name, lastStatus: Date.now() })
 
-    db.collection("participants").insertOne({ name: name, lastStatus: Date.now() })
-        .then(() => {
-            db.collection("messages").insertOne(
-                { from: name, to: 'Todos', text: 'entra na sala...', type: 'status', time: 'HH:mm:ss' }
-            )
-                .then(() => res.sendStatus(201))
-                .catch(() => res.sendStatus(500))
-        })
-        .catch(() => res.sendStatus(500))
+        await db.collection("messages").insertOne(
+            { from: name, to: 'Todos', text: 'entra na sala...', type: 'status', time: 'HH:mm:ss' }
+        )
+        res.sendStatus(201)
+    } catch (err) {
+        res.status(500).send(err.message)
+    }
+
 
 })
 
@@ -61,16 +67,15 @@ app.post("/messages", (req, res) => {
 
 })
 
-app.get("/messages", (req, res) => {
+app.get("/messages", async (req, res) => {
     const { limit } = req.query
-    db.collection("/messages").find().toArray()
-        .then(msgs => {
-            if (msgs.length > limit) {
-                msgs.shift()
-            }
-            res.send(msgs)
-        })
-        .catch(() => res.sendStatus(500))
+    try {
+        const msgs = await db.collection("/messages").find().toArray()
+        if (msgs.length > limit) msgs.shift()
+        res.send(msgs)
+    } catch (err) {
+        res.sendStatus(500)
+    }
 })
 
 app.listen(5000, () => console.log("Servidor rodando"))
