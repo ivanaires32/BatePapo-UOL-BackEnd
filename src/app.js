@@ -19,22 +19,15 @@ mongoClient.connect()
 app.post("/participants", (req, res) => {
     const { name } = req.body
 
-    if (!name) {
-        return res.status(422).send("Campo Obrigatorio")
-    } else if (nameUsers.includes(name)) {
-        return res.status(409).send("Usuario já cadastrado")
-    }
-
-    db.collection("participants").insertOne({ name, lastStatus: Date.now() })
-        .then(() => {
-            res.send("ok")
-        })
+    db.collection("participants").insertOne({ name: name, lastStatus: Date.now() })
+        .then(() => res.sendStatus(201))
         .catch(() => res.sendStatus(500))
+
 })
 
 app.get("/participants", (req, res) => {
-    db.collection("participants").find({}).toArray()
-        .then(users => res.send(users))
+    db.collection("participants").find().toArray()
+        .then(users => res.status(201).send(users))
         .catch(() => res.sendStatus(500))
 })
 
