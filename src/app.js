@@ -19,15 +19,54 @@ mongoClient.connect()
 app.post("/participants", (req, res) => {
     const { name } = req.body
 
+    if (!name) res.status(400).send("Campo Obrigatorio")
+
     db.collection("participants").insertOne({ name: name, lastStatus: Date.now() })
-        .then(() => res.sendStatus(201))
+        .then(() => {
+            db.collection("messages").insertOne(
+                { from: name, to: 'Todos', text: 'entra na sala...', type: 'status', time: 'HH:mm:ss' }
+            )
+                .then(() => res.sendStatus(201))
+                .catch(() => res.sendStatus(500))
+        })
         .catch(() => res.sendStatus(500))
 
 })
 
 app.get("/participants", (req, res) => {
+    const { user } = req.headers
     db.collection("participants").find().toArray()
         .then(users => res.status(201).send(users))
+        .catch(() => res.sendStatus(500))
+})
+
+app.post("/messages", (req, res) => {
+    const { to, text, type } = req.body
+    const { user } = req.headers
+
+    db.collection("participants").findOne({ name: user })
+        .catch(err => {
+            res.send(err.message)
+            return
+        })
+
+    if (!to || !text || !type) {
+        return res.status(422).send("mensagem não enviada")
+    } else if (typeof to === "string" && typeof text === "string" && (type === "message" || type === "private_message")) {
+        db.
+    }
+
+})
+
+app.get("/messages", (req, res) => {
+    const { limit } = req.query
+    db.collection("/messages").find().toArray()
+        .then(msgs => {
+            if (msgs.length > limit) {
+                msgs.shift()
+            }
+            res.send(msgs)
+        })
         .catch(() => res.sendStatus(500))
 })
 
