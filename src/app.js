@@ -19,7 +19,10 @@ mongoClient.connect()
 app.post("/participants", (req, res) => {
     const { name } = req.body
 
-    if (!name) res.status(400).send("Campo Obrigatorio")
+    if (!name) res.status(422).send("Campo Obrigatorio")
+
+    db.collection("participants").findOne({ name })
+        .then(() => res.sendStatus(409))
 
     db.collection("participants").insertOne({ name: name, lastStatus: Date.now() })
         .then(() => {
