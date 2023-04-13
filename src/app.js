@@ -53,7 +53,7 @@ app.post("/messages", (req, res) => {
     if (!to || !text || !type) {
         return res.status(422).send("mensagem não enviada")
     } else if (typeof to === "string" && typeof text === "string" && (type === "message" || type === "private_message")) {
-        db.
+        db.collection("messages").insertOne({ to, text, type })
     }
 
 })
