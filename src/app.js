@@ -77,9 +77,8 @@ app.post("/messages", async (req, res) => {
 app.get("/messages", async (req, res) => {
     const { limit } = req.query
     try {
-        const msgs = await db.collection("/messages").find().toArray()
-        if (msgs.length > limit) msgs.shift()
-        res.send(msgs)
+        const msgs = await db.collection("messages").find({ to: "Todos" }).toArray()
+        res.send(msgs.slice(-limit))
     } catch (err) {
         res.sendStatus(500)
     }
