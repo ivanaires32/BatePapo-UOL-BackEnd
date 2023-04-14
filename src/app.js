@@ -37,6 +37,7 @@ app.post("/participants", async (req, res) => {
         const time = dayjs().format("HH:mm:ss")
         await db.collection("messages").insertOne({ from: name, to: 'Todos', text: 'entra na sala...', type: 'status', time })
 
+        atualizarParticipants()
         res.sendStatus(201)
     } catch (err) {
         res.status(500).send(err.message)
@@ -107,11 +108,10 @@ app.get("/messages", async (req, res) => {
 app.post("/status", async (req, res) => {
     const { user } = req.headers
 
-    const lastStatus = Date.now()
     try {
         if (!user) return res.sendStatus(404)
         await db.collection("participants").findOne({ name: user })
-        await db.collection("participants").updateOne({ name: user }, { $set: lastStatus })
+        await db.collection("participants").updateOne({ name: user }, { $set: { lastStatus: Date.now() } })
         res.sendStatus(200)
     } catch (err) {
         res.sendStatus(404)
