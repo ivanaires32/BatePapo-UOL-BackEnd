@@ -37,7 +37,7 @@ app.post("/participants", async (req, res) => {
         const time = dayjs().format("HH:mm:ss")
         await db.collection("messages").insertOne({ from: name, to: 'Todos', text: 'entra na sala...', type: 'status', time })
 
-
+        atualizarParticipants(req, res)
         res.sendStatus(201)
     } catch (err) {
         res.status(500).send(err.message)
@@ -118,6 +118,16 @@ app.post("/status", async (req, res) => {
     }
 })
 
-
+function atualizarParticipants(req, res) {
+    setInterval(async () => {
+        const time = Date.now()
+        try {
+            const usersDeletes = db.collection("/participants").find({ lastStatus: { $lte: time - 10 } })
+            res.send("deu certo")
+        } catch (err) {
+            res.send("deu errdo")
+        }
+    }, 15000)
+}
 
 app.listen(5000, () => console.log("Servidor rodando"))
