@@ -3,6 +3,7 @@ import cors from "cors"
 import { MongoClient } from "mongodb"
 import dotenv from "dotenv"
 import dayjs from "dayjs"
+import joi from "joi"
 
 const app = express()
 
@@ -59,23 +60,43 @@ app.get("/participants", async (req, res) => {
 app.post("/messages", async (req, res) => {
     const { to, text, type } = req.body
     const { user } = req.headers
+    const time = dayjs().format("HH:mm:ss")
 
-    if (!user || !to || !text || !type || text === "" || to === "" || (type !== "message" && type !== "private_message")) {
-        return res.status(422).send("algo deu errado")
+
+
+    const msg = { from: user, to, text, type, time }
+    const result = joi.object({
+        from: joi.string().required(),
+        to: joi.string().min(3).max(15).required(),
+        text: joi.string().min(3).max(100).required(),
+        type: joi.string(),
+        time: joi.string()
+    })
+    const validate = result.validate(msg, { abortEarly: false })
+    if (validate.error) {
+        const erros = validate.error.details.map(e => e.message)
+        return res.status(422).send(erros)
     }
     try {
         const userOn = await db.collection("participants").findOne({ name: user })
         if (!userOn) return res.sendStatus(422)
-        const time = dayjs().format("HH:mm:ss")
-        await db.collection("messages").insertOne({ from: user, to, text, type, time })
+
+        await db.collection("messages").insertOne(msg)
+
         res.sendStatus(201)
     } catch (err) {
-        res.sendStatus(422)
+        res.status(422).send("erro")
     }
 })
 
 app.get("/messages", async (req, res) => {
     const { limit } = req.query
+
+    const result = joi.object({
+        limit: joi.number().integer().min(1)
+    })
+    const validate = result.validate({ limit })
+    if (validate.error) return res.status(422).send(validate.error)
     try {
         const msgs = await db.collection("messages").find({ to: "Todos" }).toArray()
         res.send(msgs.slice(-limit))
