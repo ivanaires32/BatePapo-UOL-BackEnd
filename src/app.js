@@ -28,14 +28,14 @@ app.post("/participants", async (req, res) => {
     if (!name || typeof name !== "string") return res.status(422).send("Campo Obrigatorio e não deve ser numero")
 
     try {
+
         const jaLogado = await db.collection("participants").findOne({ name })
         if (jaLogado) return res.status(409).send("Usuario ja cadastrado")
         await db.collection("participants").insertOne({ name: name, lastStatus: Date.now() })
 
         const time = dayjs().format("HH:mm:ss")
-        await db.collection("messages").insertOne(
-            { from: name, to: 'Todos', text: 'entra na sala...', type: 'status', time }
-        )
+        await db.collection("messages").insertOne({ from: name, to: 'Todos', text: 'entra na sala...', type: 'status', time })
+
         res.sendStatus(201)
     } catch (err) {
         res.status(500).send(err.message)
@@ -48,28 +48,30 @@ app.get("/participants", async (req, res) => {
     const { user } = req.headers
     try {
         const usersOn = await db.collection("participants").find().toArray()
+
+        await db.collection("participants").findOne({ user })
         res.status(201).send(usersOn)
     } catch (err) {
         res.sendStatus(500)
     }
 })
 
-app.post("/messages", (req, res) => {
+app.post("/messages", async (req, res) => {
     const { to, text, type } = req.body
     const { user } = req.headers
 
-    db.collection("participants").findOne({ name: user })
-        .catch(err => {
-            res.send(err.message)
-            return
-        })
-
-    if (!to || !text || !type) {
-        return res.status(422).send("mensagem não enviada")
-    } else if (typeof to === "string" && typeof text === "string" && (type === "message" || type === "private_message")) {
-        db.collection("messages").insertOne({ to, text, type })
+    if (!user || !to || !text || !type || text === "" || to === "" || type !== "message" || type !== "private_message") {
+        return res.status(422).send("algo deu errado")
     }
-
+    try {
+        const userOn = await db.collection("participants").findOne({ name: user })
+        if (!userOn) return res.sendStatus(422)
+        const time = dayjs().format("HH:mm:ss")
+        await db.collection("messages").insertOne({ from: user, to, text, type, time })
+        res.sendStatus(201)
+    } catch (err) {
+        res.sendStatus(422)
+    }
 })
 
 app.get("/messages", async (req, res) => {
