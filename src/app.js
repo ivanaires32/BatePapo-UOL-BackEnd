@@ -69,7 +69,7 @@ app.post("/messages", async (req, res) => {
         from: joi.string().required(),
         to: joi.string().min(3).max(15).required(),
         text: joi.string().min(3).max(100).required(),
-        type: joi.string(),
+        type: joi.string().required(),
         time: joi.string()
     })
     const validate = result.validate(msg, { abortEarly: false })
@@ -91,6 +91,7 @@ app.post("/messages", async (req, res) => {
 
 app.get("/messages", async (req, res) => {
     const { limit } = req.query
+    const { user } = req.headers
 
     const result = joi.object({
         limit: joi.number().integer().min(1)
@@ -98,7 +99,7 @@ app.get("/messages", async (req, res) => {
     const validate = result.validate({ limit })
     if (validate.error) return res.status(422).send(validate.error)
     try {
-        const msgs = await db.collection("messages").find({ to: "Todos" }).toArray()
+        const msgs = await db.collection("messages").find({ $or: [{ to: "Todos" }, { to: user }, { from: user }] }).toArray()
         res.send(msgs.slice(-limit))
     } catch (err) {
         res.sendStatus(500)
