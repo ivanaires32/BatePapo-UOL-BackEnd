@@ -37,7 +37,7 @@ app.post("/participants", async (req, res) => {
         const time = dayjs().format("HH:mm:ss")
         await db.collection("messages").insertOne({ from: name, to: 'Todos', text: 'entra na sala...', type: 'status', time })
 
-        atualizarParticipants()
+
         res.sendStatus(201)
     } catch (err) {
         res.status(500).send(err.message)
@@ -117,6 +117,7 @@ app.post("/status", async (req, res) => {
         res.sendStatus(404)
     }
 })
+
 
 
 app.listen(5000, () => console.log("Servidor rodando"))
