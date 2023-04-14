@@ -32,7 +32,7 @@ app.post("/participants", async (req, res) => {
 
         const jaLogado = await db.collection("participants").findOne({ name })
         if (jaLogado) return res.status(409).send("Usuario ja cadastrado")
-        await db.collection("participants").insertOne({ name: name, lastStatus: Date.now() })
+        await db.collection("participants").insertOne({ name, lastStatus: Date.now() })
 
         const time = dayjs().format("HH:mm:ss")
         await db.collection("messages").insertOne({ from: name, to: 'Todos', text: 'entra na sala...', type: 'status', time })
@@ -62,14 +62,12 @@ app.post("/messages", async (req, res) => {
     const { user } = req.headers
     const time = dayjs().format("HH:mm:ss")
 
-
-
     const msg = { from: user, to, text, type, time }
     const result = joi.object({
         from: joi.string().required(),
         to: joi.string().min(3).max(15).required(),
         text: joi.string().min(3).max(100).required(),
-        type: joi.string().required(),
+        type: joi.string().valid("message", "private_message").required(),
         time: joi.string()
     })
     const validate = result.validate(msg, { abortEarly: false })
@@ -105,5 +103,20 @@ app.get("/messages", async (req, res) => {
         res.sendStatus(500)
     }
 })
+
+app.post("/status", async (req, res) => {
+    const { user } = req.headers
+
+    const lastStatus = Date.now()
+    try {
+        if (!user) return res.sendStatus(404)
+        await db.collection("participants").findOne({ name: user })
+        await db.collection("participants").updateOne({ name: user }, { $set: lastStatus })
+        res.sendStatus(200)
+    } catch (err) {
+        res.sendStatus(404)
+    }
+})
+
 
 app.listen(5000, () => console.log("Servidor rodando"))
