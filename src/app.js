@@ -60,7 +60,7 @@ app.post("/messages", async (req, res) => {
     const { to, text, type } = req.body
     const { user } = req.headers
 
-    if (!user || !to || !text || !type || text === "" || to === "" || type !== "message" || type !== "private_message") {
+    if (!user || !to || !text || !type || text === "" || to === "" || (type !== "message" && type !== "private_message")) {
         return res.status(422).send("algo deu errado")
     }
     try {
