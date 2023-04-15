@@ -52,7 +52,7 @@ app.get("/participants", async (req, res) => {
         const on = await db.collection("participants").find().toArray()
 
         await db.collection("participants").findOne({ user })
-        db.collection("participants").deleteOne({ lastStatus: { $lt: time - 10000 } })
+        await db.collection("participants").deleteOne({ lastStatus: { $lt: time - 10000 } })
         res.status(201).send(on)
     } catch (err) {
         res.sendStatus(500)
