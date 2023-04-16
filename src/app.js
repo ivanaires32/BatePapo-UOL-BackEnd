@@ -55,9 +55,8 @@ app.get("/participants", async (req, res) => {
         setInterval(async () => {
             if (userOn) {
                 const last = Date.now()
-                const time = dayjs().format("HH:mm:ss")
                 const del = await db.collection("participants").deleteMany({ lastStatus: { $lte: last - 10000 } })
-                if (del.deletedCount !== 0) await db.collection("messages").insertOne({ from: user, to: 'Todos', text: 'sai na sala...', type: 'status', time })
+                if (del.deletedCount > 0) await db.collection("messages").insertOne({ text: 'sai na sala...', type: 'status' })
             }
         }, 1000)
         res.status(201).send(on)
