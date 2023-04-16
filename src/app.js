@@ -47,20 +47,19 @@ app.post("/participants", async (req, res) => {
 
 app.get("/participants", async (req, res) => {
     const { user } = req.headers
-    const last = Date.now()
+
     try {
         const on = await db.collection("participants").find().toArray()
 
         const userOn = await db.collection("participants").findOne({ user })
-        if (userOn) {
-            setInterval(async () => {
+        setInterval(async () => {
+            if (userOn) {
+                const last = Date.now()
                 const time = dayjs().format("HH:mm:ss")
-                const del = await db.collection("participants").deleteOne({ lastStatus: { $lt: last - 10000 } })
-                if (del.deletedCount > 0) await db.collection("messages").insertOne({ from: user, to: 'Todos', text: 'sai da sala...', type: 'status', time })
-            }, 100)
-        } else {
-            return res.sendStatus(404)
-        }
+                const del = await db.collection("participants").deleteMany({ lastStatus: { $lte: last - 10000 } })
+                if (del.deletedCount !== 0) await db.collection("messages").insertOne({ from: user, to: 'Todos', text: 'sai na sala...', type: 'status', time })
+            }
+        }, 1000)
         res.status(201).send(on)
     } catch (err) {
         res.sendStatus(500)
