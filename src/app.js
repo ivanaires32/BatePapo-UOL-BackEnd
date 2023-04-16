@@ -51,13 +51,16 @@ app.get("/participants", async (req, res) => {
     try {
         const on = await db.collection("participants").find().toArray()
 
-        await db.collection("participants").findOne({ user })
-        setInterval(async () => {
-            const time = dayjs().format("HH:mm:ss")
-            const del = await db.collection("participants").deleteOne({ lastStatus: { $lt: last - 10000 } })
-            if (del.deletedCount > 0) await db.collection("messages").insertOne({ from: user, to: 'Todos', text: 'sai da sala...', type: 'status', time })
-        }, 100)
-
+        const userOn = await db.collection("participants").findOne({ user })
+        if (userOn) {
+            setInterval(async () => {
+                const time = dayjs().format("HH:mm:ss")
+                const del = await db.collection("participants").deleteOne({ lastStatus: { $lt: last - 10000 } })
+                if (del.deletedCount > 0) await db.collection("messages").insertOne({ from: user, to: 'Todos', text: 'sai da sala...', type: 'status', time })
+            }, 100)
+        } else {
+            return res.sendStatus(404)
+        }
         res.status(201).send(on)
     } catch (err) {
         res.sendStatus(500)
@@ -69,20 +72,21 @@ app.post("/messages", async (req, res) => {
     const { user } = req.headers
     const time = dayjs().format("HH:mm:ss")
 
-    const msg = { from: user, to, text, type, time }
-    const result = joi.object({
-        from: joi.string().required(),
-        to: joi.string().min(3).max(15).required(),
-        text: joi.string().min(3).max(100).required(),
-        type: joi.string().valid("message", "private_message").required(),
-        time: joi.string()
-    })
-    const validate = result.validate(msg, { abortEarly: false })
-    if (validate.error) {
-        const erros = validate.error.details.map(e => e.message)
-        return res.status(422).send(erros)
-    }
     try {
+        const msg = { from: user, to, text, type, time }
+        const result = joi.object({
+            from: joi.string().required(),
+            to: joi.string().min(3).max(15).required(),
+            text: joi.string().min(3).max(100).required(),
+            type: joi.string().valid("message", "private_message").required(),
+            time: joi.string()
+        })
+        const validate = result.validate(msg, { abortEarly: false })
+        if (validate.error) {
+            const erros = validate.error.details.map(e => e.message)
+            return res.status(422).send(erros)
+        }
+
         const userOn = await db.collection("participants").findOne({ name: user })
         if (!userOn) return res.sendStatus(422)
 
@@ -117,8 +121,11 @@ app.post("/status", async (req, res) => {
     try {
         if (!user) return res.sendStatus(404)
         const on = await db.collection("participants").findOne({ name: user })
-        if (!on) return res.sendStatus(404)
-        await db.collection("participants").updateOne({ name: user }, { $set: { lastStatus: Date.now() } })
+        if (!on) {
+            return res.sendStatus(404)
+        } else {
+            await db.collection("participants").updateOne({ name: user }, { $set: { lastStatus: Date.now() } })
+        }
         res.sendStatus(200)
     } catch (err) {
         res.sendStatus(404)
