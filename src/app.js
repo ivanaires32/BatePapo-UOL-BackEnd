@@ -52,11 +52,14 @@ app.get("/participants", async (req, res) => {
     try {
         const on = await db.collection("participants").find().toArray()
 
-        const userOn = await db.collection("participants").findOne({ user })
-        if (!userOn) return res.sendStatus(404)
-        const last = Date.now()
-        const del = await db.collection("participants").deleteOne({ lastStatus: { $lte: last - 10000 } })
-        if (del.deletedCount !== 0) await db.collection("messages").insertOne({ from: user, to: 'Todos', text: 'sai da sala...', type: 'status', time })
+        await db.collection("participants").findOne({ user })
+
+        setInterval(async () => {
+            const last = Date.now()
+            const del = await db.collection("participants").deleteOne({ lastStatus: { $lte: last - 10000 } })
+            if (del.deletedCount !== 0) await db.collection("messages").insertOne({ from: user, to: 'Todos', text: 'sai da sala...', type: 'status', time })
+
+        }, 1000)
 
         res.status(201).send(on)
     } catch (err) {
