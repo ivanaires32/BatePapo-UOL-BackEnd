@@ -47,20 +47,14 @@ app.post("/participants", async (req, res) => {
 
 app.get("/participants", async (req, res) => {
     const { user } = req.headers
-    const time = dayjs().format("HH:mm:ss")
+
 
     try {
         const on = await db.collection("participants").find().toArray()
 
         await db.collection("participants").findOne({ user })
 
-        setInterval(async () => {
-            const last = Date.now()
-            const delUser = await db.collection("participants").findOne({ lastStatus: { $lte: last - 10000 } })
-            const del = await db.collection("participants").deleteOne({ lastStatus: { $lte: last - 10000 } })
-            if (del.deletedCount !== 0) await db.collection("messages").insertOne({ from: delUser.name, to: 'Todos', text: 'sai da sala...', type: 'status', time })
 
-        }, 1000)
 
         res.status(201).send(on)
     } catch (err) {
@@ -136,6 +130,17 @@ app.post("/status", async (req, res) => {
     }
 })
 
+setInterval(async () => {
+    try {
+        const time = dayjs().format("HH:mm:ss")
+        const last = Date.now()
+        const delUser = await db.collection("participants").findOne({ lastStatus: { $lte: last - 10000 } })
+        const del = await db.collection("participants").deleteOne({ lastStatus: { $lte: last - 10000 } })
+        if (del.deletedCount !== 0) await db.collection("messages").insertOne({ from: delUser.name, to: 'Todos', text: 'sai da sala...', type: 'status', time })
+    } catch (err) {
+    }
+
+}, 15000)
 
 
 app.listen(5000, () => console.log("Servidor rodando"))
