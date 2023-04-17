@@ -150,9 +150,10 @@ app.delete("/messages/:ID_DA_MENSAGEM", async (req, res) => {
         const idMsg = await db.collection("messages").findOne({ _id: new ObjectId(ID_DA_MENSAGEM) })
         if (!idMsg) {
             return res.sendStatus(404)
-        } else if (idMsg.name !== user) {
-            return res.sendStatus(401)
         }
+
+        const nameMsg = await db.collection("messages").findOne({ from: user })
+        if (!nameMsg) return res.sendStatus(401)
 
         const del = await db.collection("messages").deleteOne(idMsg)
         if (del.deletedCount === 0) return res.sendStatus(500)
@@ -169,29 +170,30 @@ app.put("/messages/:ID_DA_MENSAGEM", async (req, res) => {
     const { user } = req.headers
     const { ID_DA_MENSAGEM } = req.params
 
+    const msgEdit = {}
+    if (to) msgEdit.to = to
+    if (text) msgEdit.text = text
+    if (type) msgEdit.type = type
+
+
     try {
-        const msg = { from: user, to, text, type, time }
-        const result = joi.object({
-            from: joi.string().required(),
+
+        const valid = joi.object({
             to: joi.string().min(3).max(15).required(),
             text: joi.string().min(3).max(100).required(),
             type: joi.string().valid("message", "private_message").required(),
-            time: joi.string()
         })
-        const validate = result.validate(msg, { abortEarly: false })
+        const validate = valid.validate(msgEdit, { abortEarly: false })
         if (validate.error) {
             const erros = validate.error.details.map(e => e.message)
             return res.status(422).send(erros)
         }
-        const userOn = await db.collection("participants").findOne({ name: user })
-        if (!userOn) return res.sendStatus(422)
 
-        const idMsg = await db.collection("messages").findOne({ _id: new ObjectId(ID_DA_MENSAGEM) })
-        if (!idMsg) {
-            return res.sendStatus(404)
-        } else if (idMsg.name !== user) {
-            return res.sendStatus(401)
-        }
+        const nameMsg = await db.collection("messages").findOne({ from: user })
+        if (!nameMsg) return res.sendStatus(401)
+
+        const result = await db.collection("messages").updateOne({ _id: new ObjectId(ID_DA_MENSAGEM) }, { $set: msgEdit })
+        if (result.matchedCount === 0) return res.sendStatus(404)
 
         res.sendStatus(200)
     } catch (err) {
