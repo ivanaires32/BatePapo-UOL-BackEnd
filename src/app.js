@@ -100,24 +100,24 @@ app.post("/messages", async (req, res) => {
     }
 })
 
-setInterval(() => {
-    app.get("/messages", async (req, res) => {
-        const { limit } = req.query
-        const { user } = req.headers
 
-        const result = joi.object({
-            limit: joi.number().integer().min(1)
-        })
-        const validate = result.validate({ limit })
-        if (validate.error) return res.status(422).send(validate.error)
-        try {
-            const msgs = await db.collection("messages").find({ $or: [{ to: "Todos" }, { to: user }, { from: user }] }).toArray()
-            res.send(msgs.slice(-limit))
-        } catch (err) {
-            res.sendStatus(500)
-        }
+app.get("/messages", async (req, res) => {
+    const { limit } = req.query
+    const { user } = req.headers
+
+    const result = joi.object({
+        limit: joi.number().integer().min(1)
     })
-}, 1000)
+    const validate = result.validate({ limit })
+    if (validate.error) return res.status(422).send(validate.error)
+    try {
+        const msgs = await db.collection("messages").find({ $or: [{ to: "Todos" }, { to: user }, { from: user }] }).toArray()
+        res.send(msgs.slice(-limit))
+    } catch (err) {
+        res.sendStatus(500)
+    }
+})
+
 
 app.post("/status", async (req, res) => {
     const { user } = req.headers
