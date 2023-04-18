@@ -23,19 +23,43 @@ try {
 
 const db = mongoClient.db()
 
+//Scheme
+const participantsScheme = joi.object({
+    name: joi.string().required()
+})
+
+const messageScheme = joi.object({
+    from: joi.string().required(),
+    to: joi.string().min(3).max(15).required(),
+    text: joi.string().min(3).max(100).required(),
+    type: joi.string().valid("message", "private_message").required(),
+    time: joi.string()
+})
+
+
+//EndPoints
 app.post("/participants", async (req, res) => {
     const { name } = req.body
+    const time = Date.now()
 
-    if (!name || typeof name !== "string") return res.status(422).send("Campo Obrigatorio e não deve ser numero")
-
+    const validation = participantsScheme.validate(req.body, { abortEarly: false })
+    if (validation.error) {
+        return res.status(422).send(validation.error.details.map(d => d.message))
+    }
     try {
 
         const jaLogado = await db.collection("participants").findOne({ name })
         if (jaLogado) return res.status(409).send("Usuario ja cadastrado")
-        await db.collection("participants").insertOne({ name, lastStatus: Date.now() })
+        await db.collection("participants").insertOne({ name, lastStatus: time })
 
-        const time = dayjs().format("HH:mm:ss")
-        await db.collection("messages").insertOne({ from: name, to: 'Todos', text: 'entra na sala...', type: 'status', time })
+        const msg = {
+            from: name,
+            to: 'Todos',
+            text: 'entra na sala...',
+            type: 'status',
+            time: dayjs(time).format("HH:mm:ss")
+        }
+        await db.collection("messages").insertOne(msg)
 
         res.sendStatus(201)
     } catch (err) {
@@ -47,14 +71,10 @@ app.post("/participants", async (req, res) => {
 
 app.get("/participants", async (req, res) => {
     const { user } = req.headers
-
-
     try {
         const on = await db.collection("participants").find().toArray()
 
         await db.collection("participants").findOne({ user })
-
-
 
         res.status(201).send(on)
     } catch (err) {
@@ -66,18 +86,10 @@ app.get("/participants", async (req, res) => {
 app.post("/messages", async (req, res) => {
     const { to, text, type } = req.body
     const { user } = req.headers
-    const time = dayjs().format("HH:mm:ss")
+
 
     try {
-        const msg = { from: user, to, text, type, time }
-        const result = joi.object({
-            from: joi.string().required(),
-            to: joi.string().min(3).max(15).required(),
-            text: joi.string().min(3).max(100).required(),
-            type: joi.string().valid("message", "private_message").required(),
-            time: joi.string()
-        })
-        const validate = result.validate(msg, { abortEarly: false })
+        const validate = messageScheme.validate({ ...req.body, from: user }, { abortEarly: false })
         if (validate.error) {
             const erros = validate.error.details.map(e => e.message)
             return res.status(422).send(erros)
@@ -86,11 +98,11 @@ app.post("/messages", async (req, res) => {
         const userOn = await db.collection("participants").findOne({ name: user })
         if (!userOn) return res.sendStatus(422)
 
-        await db.collection("messages").insertOne(msg)
+        await db.collection("messages").insertOne({ ...req.body, from: user, time: dayjs().format("HH:mm:ss") })
 
         res.sendStatus(201)
     } catch (err) {
-        res.status(422).send("erro")
+        res.status(422).send(err.message)
     }
 })
 
@@ -98,14 +110,12 @@ app.post("/messages", async (req, res) => {
 app.get("/messages", async (req, res) => {
     const { limit } = req.query
     const { user } = req.headers
+    const numberLimit = Number(limit)
 
-    const result = joi.object({
-        limit: joi.number().integer().min(1)
-    })
-    const validate = result.validate({ limit })
-    if (validate.error) return res.status(422).send(validate.error)
+    if (limit !== undefined && (numberLimit <= 0 || isNaN(numberLimit))) return res.sendStatus(422)
     try {
-        const msgs = await db.collection("messages").find({ $or: [{ to: "Todos" }, { to: user }, { from: user }] }).toArray()
+        const msgs = await db.collection("messages").find({ $or: [{ to: { $in: ["Todos", user] } }, { from: user }, { type: "message" }] }).toArray()
+        // $in verifica 2 valores, ou um ou outro e aceito (dentro de um intervalo)
         res.send(msgs.slice(-limit))
     } catch (err) {
         res.sendStatus(500)
@@ -126,18 +136,31 @@ app.post("/status", async (req, res) => {
         }
         res.sendStatus(200)
     } catch (err) {
-        res.sendStatus(404)
+        res.status(500).send(err.message)
     }
 })
 
 setInterval(async () => {
     try {
-        const time = dayjs().format("HH:mm:ss")
-        const last = Date.now()
-        const delUser = await db.collection("participants").findOne({ lastStatus: { $lte: last - 10000 } })
-        const del = await db.collection("participants").deleteOne({ lastStatus: { $lte: last - 10000 } })
-        if (del.deletedCount !== 0) await db.collection("messages").insertOne({ from: delUser.name, to: 'Todos', text: 'sai da sala...', type: 'status', time })
+        const last = Date.now() - 10000
+        const inactive = await db.collection("participants")
+            .find({ lastStatus: { $lt: last } }).toArray()
+        if (inactive.length > 0) {
+            const messages = inactive.map(inactive => {
+                return {
+                    from: inactive.name,
+                    to: 'Todos',
+                    text: 'sai da sala...',
+                    type: 'status',
+                    time: dayjs().format("HH:mm:ss")
+                }
+            })
+            await db.collection("messages").insertOne(messages)
+            await db.collection("participants").deleteMany({ lastStatus: { $lt: last } })
+        }
+
     } catch (err) {
+        res.send(400)
     }
 
 }, 15000)
